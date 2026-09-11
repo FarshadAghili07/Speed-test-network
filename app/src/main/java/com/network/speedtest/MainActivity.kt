@@ -1,151 +1,237 @@
 package com.network.speedtest
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import org.json.JSONArray
-import org.json.JSONObject
-import java.io.InputStream
-import java.io.OutputStream
-import java.net.HttpURLConnection
-import java.net.InetAddress
-import java.net.InetSocketAddress
-import java.net.Socket
-import java.net.URL
-import kotlin.random.Random
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.os.Bundle
+import android.widget.Toast
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 
-class NetworkManager {
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent {
+            SpeedTestApp()
+        }
+    }
+}
 
-    suspend fun getIpDetails(): Map<String, String> = withContext(Dispatchers.IO) {
-        try {
-            val url = URL("https://ipwho.is/")
-            val conn = (url.openConnection() as HttpURLConnection).apply {
-                connectTimeout = 5000
-                readTimeout = 5000
-                setRequestProperty("User-Agent", "Mozilla/5.0")
-            }
-            val text = conn.inputStream.bufferedReader().use { it.readText() }
-            val json = JSONObject(text)
-            val connection = json.optJSONObject("connection")
-            val ispName = connection?.optString("isp") ?: json.optString("isp", "-")
+@Composable
+fun SpeedTestApp() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val netManager = remember { NetworkManager() }
 
-            mapOf(
-                "ip" to json.optString("ip", "-"),
-                "country" to json.optString("country", "-"),
-                "city" to json.optString("city", "-"),
-                "isp" to ispName
+    var isTesting by remember { mutableStateOf(false) }
+    var ping by remember { mutableStateOf("-") }
+    var downloadSpeed by remember { mutableStateOf("0.0") }
+    var uploadSpeed by remember { mutableStateOf("0.0") }
+    var ip by remember { mutableStateOf("-") }
+    var location by remember { mutableStateOf("-") }
+    var isp by remember { mutableStateOf("-") }
+    var dnsStatus by remember { mutableStateOf("-") }
+    var dnsServers by remember { mutableStateOf("-") }
+
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = Color(0xFF0F172A)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(20.dp)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(modifier = Modifier.height(20.dp))
+            Text(
+                text = "سنجش شبکه و امنیت DNS",
+                color = Color.White,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold
             )
-        } catch (e: Exception) {
-            mapOf("ip" to "خطا در دریافت", "country" to "-", "city" to "-", "isp" to "-")
-        }
-    }
 
-    suspend fun measurePing(host: String = "1.1.1.1", port: Int = 53): Long = withContext(Dispatchers.IO) {
-        try {
-            val start = System.currentTimeMillis()
-            Socket().use { it.connect(InetSocketAddress(host, port), 2500) }
-            System.currentTimeMillis() - start
-        } catch (e: Exception) {
-            -1L
-        }
-    }
+            Spacer(modifier = Modifier.height(20.dp))
 
-    suspend fun testDownloadSpeed(onProgress: (Double) -> Unit): Double = withContext(Dispatchers.IO) {
-        try {
-            val fileUrl = URL("https://speed.cloudflare.com/__down?bytes=10000000") // 10MB
-            val conn = fileUrl.openConnection() as HttpURLConnection
-            conn.connectTimeout = 5000
-            conn.readTimeout = 8000
-            val input: InputStream = conn.inputStream
-            val buffer = ByteArray(8192)
-            var totalBytesRead = 0L
-            val startTime = System.currentTimeMillis()
-
-            var bytesRead: Int
-            while (input.read(buffer).also { bytesRead = it } != -1) {
-                totalBytesRead += bytesRead
-                val elapsedSec = (System.currentTimeMillis() - startTime) / 1000.0
-                if (elapsedSec > 0.3) {
-                    val currentMbps = (totalBytesRead * 8.0) / (elapsedSec * 1_000_000.0)
-                    onProgress(String.format("%.1f", currentMbps).toDouble())
-                }
-            }
-            input.close()
-            val totalSec = (System.currentTimeMillis() - startTime) / 1000.0
-            (totalBytesRead * 8.0) / (totalSec * 1_000_000.0)
-        } catch (e: Exception) {
-            0.0
-        }
-    }
-
-    suspend fun testUploadSpeed(onProgress: (Double) -> Unit): Double = withContext(Dispatchers.IO) {
-        try {
-            val fileUrl = URL("https://speed.cloudflare.com/__up")
-            val conn = (fileUrl.openConnection() as HttpURLConnection).apply {
-                doOutput = true
-                requestMethod = "POST"
-                connectTimeout = 5000
-                readTimeout = 8000
-                setFixedLengthStreamingMode(5 * 1024 * 1024) // 5MB
-            }
-            val output: OutputStream = conn.outputStream
-            val payload = ByteArray(8192)
-            var totalBytesSent = 0L
-            val startTime = System.currentTimeMillis()
-
-            for (i in 0 until (5 * 1024 * 1024 / 8192)) {
-                output.write(payload)
-                totalBytesSent += payload.size
-                val elapsedSec = (System.currentTimeMillis() - startTime) / 1000.0
-                if (elapsedSec > 0.3) {
-                    val currentMbps = (totalBytesSent * 8.0) / (elapsedSec * 1_000_000.0)
-                    onProgress(String.format("%.1f", currentMbps).toDouble())
-                }
-            }
-            output.flush()
-            output.close()
-            val totalSec = (System.currentTimeMillis() - startTime) / 1000.0
-            (totalBytesSent * 8.0) / (totalSec * 1_000_000.0)
-        } catch (e: Exception) {
-            0.0
-        }
-    }
-
-    suspend fun checkDnsLeak(userIp: String): Pair<String, String> = withContext(Dispatchers.IO) {
-        try {
-            val testId = Random.nextInt(100000, 999999)
-            try {
-                InetAddress.getByName("$testId.bash.ws")
-            } catch (_: Exception) {}
-
-            val reportUrl = URL("https://bash.ws/dnsleak/test/$testId?json")
-            val conn = (reportUrl.openConnection() as HttpURLConnection).apply {
-                connectTimeout = 6000
-                readTimeout = 6000
-                setRequestProperty("User-Agent", "Mozilla/5.0")
-            }
-            val text = conn.inputStream.bufferedReader().use { it.readText() }
-            val array = JSONArray(text)
-            val resolvers = mutableListOf<String>()
-            var leakFound = false
-
-            for (i in 0 until array.length()) {
-                val item = array.getJSONObject(i)
-                val type = item.optString("type")
-                val ip = item.optString("ip")
-                val country = item.optString("country_name")
-                if (type == "dns") {
-                    resolvers.add("$ip ($country)")
-                }
-                if (type == "conclusion" && item.optString("ip") == "DNS leak") {
-                    leakFound = true
+            // کارت سرعت دانلود، آپلود و پینگ
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B))
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp).fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceAround
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("دانلود", color = Color(0xFF94A3B8), fontSize = 14.sp)
+                            Text(
+                                text = "$downloadSpeed Mbps",
+                                color = Color(0xFF38BDF8),
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("آپلود", color = Color(0xFF94A3B8), fontSize = 14.sp)
+                            Text(
+                                text = "$uploadSpeed Mbps",
+                                color = Color(0xFFA78BFA),
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Text(
+                        text = "پینگ: $ping ms",
+                        color = if (ping != "-") Color(0xFF4ADE80) else Color(0xFF94A3B8),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
             }
 
-            val status = if (leakFound) "⚠️ نشت دی‌ان‌اس کشف شد!" else "✅ امن (بدون نشت)"
-            val resList = if (resolvers.isEmpty()) "Cloudflare / System DNS" else resolvers.distinct().joinToString("\n")
-            Pair(status, resList)
-        } catch (e: Exception) {
-            Pair("✅ امن (پیش‌فرض سیستم)", "Cloudflare / System DNS")
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // مشخصات اتصال
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("مشخصات اتصال", color = Color(0xFF38BDF8), fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    RowDetail(title = "آدرس IP:", value = ip)
+                    RowDetail(title = "موقعیت:", value = location)
+                    RowDetail(title = "ارائه‌دهنده (ISP):", value = isp)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // DNS Leak
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("وضعیت نشت DNS (Leak Test)", color = Color(0xFFF43F5E), fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    RowDetail(title = "نتیجه:", value = dnsStatus)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("سرورهای تحلیل‌کننده:", color = Color(0xFF94A3B8), fontSize = 13.sp)
+                    Text(dnsServers, color = Color.White, fontSize = 13.sp)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Button(
+                onClick = {
+                    scope.launch {
+                        isTesting = true
+                        downloadSpeed = "..."
+                        uploadSpeed = "..."
+                        ping = "..."
+                        dnsStatus = "در حال تحلیل..."
+
+                        val ipInfo = netManager.getIpDetails()
+                        ip = ipInfo["ip"] ?: "-"
+                        location = "${ipInfo["city"]}, ${ipInfo["country"]}"
+                        isp = ipInfo["isp"] ?: "-"
+
+                        val p = netManager.measurePing()
+                        ping = if (p >= 0) "$p" else "تایم‌اوت"
+
+                        val dSpeed = netManager.testDownloadSpeed { current ->
+                            downloadSpeed = current.toString()
+                        }
+                        downloadSpeed = String.format("%.1f", dSpeed)
+
+                        val uSpeed = netManager.testUploadSpeed { current ->
+                            uploadSpeed = current.toString()
+                        }
+                        uploadSpeed = String.format("%.1f", uSpeed)
+
+                        val (status, servers) = netManager.checkDnsLeak(ip)
+                        dnsStatus = status
+                        dnsServers = servers
+
+                        isTesting = false
+                    }
+                },
+                enabled = !isTesting,
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
+            ) {
+                Text(
+                    text = if (isTesting) "در حال سنجش کامل..." else "شروع تست کامل",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // دکمه کپی گزارش
+            OutlinedButton(
+                onClick = {
+                    val report = """
+                        📊 گزارش تست شبکه:
+                        📥 دانلود: $downloadSpeed Mbps
+                        📤 آپلود: $uploadSpeed Mbps
+                        ⚡ پینگ: $ping ms
+                        🌐 آی‌پی: $ip
+                        📍 موقعیت: $location ($isp)
+                        🛡 وضعیت نشت DNS: $dnsStatus
+                        🖥 سرورها: $dnsServers
+                    """.trimIndent()
+
+                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    clipboard.setPrimaryClip(ClipData.newPlainText("NetTest Report", report))
+                    Toast.makeText(context, "گزارش در کلیپ‌بورد کپی شد", Toast.LENGTH_SHORT).show()
+                },
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Text("کپی نتایج به کلیپ‌بورد", color = Color(0xFF94A3B8), fontSize = 14.sp)
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
         }
+    }
+}
+
+@Composable
+fun RowDetail(title: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(title, color = Color(0xFF94A3B8), fontSize = 14.sp)
+        Text(value, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
     }
 }
