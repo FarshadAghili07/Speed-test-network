@@ -5,6 +5,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.InputStream
+import java.io.OutputStream
 import java.net.HttpURLConnection
 import java.net.InetAddress
 import java.net.InetSocketAddress
@@ -34,7 +35,7 @@ class NetworkManager {
                 "isp" to ispName
             )
         } catch (e: Exception) {
-            mapOf("ip" to "خطا در اتصال", "country" to "-", "city" to "-", "isp" to "-")
+            mapOf("ip" to "خطا در دریافت", "country" to "-", "city" to "-", "isp" to "-")
         }
     }
 
@@ -76,6 +77,39 @@ class NetworkManager {
         }
     }
 
+    suspend fun testUploadSpeed(onProgress: (Double) -> Unit): Double = withContext(Dispatchers.IO) {
+        try {
+            val fileUrl = URL("https://speed.cloudflare.com/__up")
+            val conn = (fileUrl.openConnection() as HttpURLConnection).apply {
+                doOutput = true
+                requestMethod = "POST"
+                connectTimeout = 5000
+                readTimeout = 8000
+                setFixedLengthStreamingMode(5 * 1024 * 1024)
+            }
+            val output: OutputStream = conn.outputStream
+            val payload = ByteArray(8192)
+            var totalBytesSent = 0L
+            val startTime = System.currentTimeMillis()
+
+            for (i in 0 until (5 * 1024 * 1024 / 8192)) {
+                output.write(payload)
+                totalBytesSent += payload.size
+                val elapsedSec = (System.currentTimeMillis() - startTime) / 1000.0
+                if (elapsedSec > 0.3) {
+                    val currentMbps = (totalBytesSent * 8.0) / (elapsedSec * 1_000_000.0)
+                    onProgress(String.format("%.1f", currentMbps).toDouble())
+                }
+            }
+            output.flush()
+            output.close()
+            val totalSec = (System.currentTimeMillis() - startTime) / 1000.0
+            (totalBytesSent * 8.0) / (totalSec * 1_000_000.0)
+        } catch (e: Exception) {
+            0.0
+        }
+    }
+
     suspend fun checkDnsLeak(userIp: String): Pair<String, String> = withContext(Dispatchers.IO) {
         try {
             val testId = Random.nextInt(100000, 999999)
@@ -108,7 +142,7 @@ class NetworkManager {
             }
 
             val status = if (leakFound) "⚠️ نشت دی‌ان‌اس کشف شد!" else "✅ امن (بدون نشت)"
-            val resList = if (resolvers.isEmpty()) "DNS مستقیم اپراتور / کلودفلر" else resolvers.distinct().joinToString("\n")
+            val resList = if (resolvers.isEmpty()) "Cloudflare / System DNS" else resolvers.distinct().joinToString("\n")
             Pair(status, resList)
         } catch (e: Exception) {
             Pair("✅ امن (پیش‌فرض سیستم)", "Cloudflare / System DNS")
