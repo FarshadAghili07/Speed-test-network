@@ -15,6 +15,13 @@ import kotlin.random.Random
 
 class NetworkManager {
 
+    private fun countryCodeToEmoji(code: String): String {
+        if (code.length != 2) return ""
+        val firstChar = Character.codePointAt(code.uppercase(), 0) - 0x41 + 0x1F1E6
+        val secondChar = Character.codePointAt(code.uppercase(), 1) - 0x41 + 0x1F1E6
+        return String(Character.toChars(firstChar)) + String(Character.toChars(secondChar))
+    }
+
     suspend fun getIpDetails(): Map<String, String> = withContext(Dispatchers.IO) {
         try {
             val url = URL("https://ipwho.is/")
@@ -27,15 +34,18 @@ class NetworkManager {
             val json = JSONObject(text)
             val connection = json.optJSONObject("connection")
             val ispName = connection?.optString("isp") ?: json.optString("isp", "-")
+            val countryCode = json.optString("country_code", "")
+            val flagEmoji = countryCodeToEmoji(countryCode)
 
             mapOf(
                 "ip" to json.optString("ip", "-"),
                 "country" to json.optString("country", "-"),
                 "city" to json.optString("city", "-"),
-                "isp" to ispName
+                "isp" to ispName,
+                "flag" to flagEmoji
             )
         } catch (e: Exception) {
-            mapOf("ip" to "خطا در دریافت", "country" to "-", "city" to "-", "isp" to "-")
+            mapOf("ip" to "خطا در دریافت", "country" to "-", "city" to "-", "isp" to "-", "flag" to "")
         }
     }
 
