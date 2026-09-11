@@ -66,9 +66,8 @@ fun SpeedTestApp() {
                 fontWeight = FontWeight.Bold
             )
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            // کارت سرعت دانلود، آپلود و پینگ
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(18.dp),
@@ -113,7 +112,6 @@ fun SpeedTestApp() {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // مشخصات اتصال
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(18.dp),
@@ -130,7 +128,6 @@ fun SpeedTestApp() {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // DNS Leak
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(18.dp),
@@ -165,12 +162,12 @@ fun SpeedTestApp() {
                         val p = netManager.measurePing()
                         ping = if (p >= 0) "$p" else "تایم‌اوت"
 
-                        val dSpeed = netManager.testDownloadSpeed { current ->
+                        val dSpeed = netManager.testDownloadSpeed { current: Double ->
                             downloadSpeed = current.toString()
                         }
                         downloadSpeed = String.format("%.1f", dSpeed)
 
-                        val uSpeed = netManager.testUploadSpeed { current ->
+                        val uSpeed = netManager.testUploadSpeed { current: Double ->
                             uploadSpeed = current.toString()
                         }
                         uploadSpeed = String.format("%.1f", uSpeed)
@@ -196,7 +193,6 @@ fun SpeedTestApp() {
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // دکمه کپی گزارش
             OutlinedButton(
                 onClick = {
                     val report = """
