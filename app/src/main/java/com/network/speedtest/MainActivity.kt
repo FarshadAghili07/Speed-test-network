@@ -7,11 +7,9 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -55,7 +53,6 @@ fun SpeedTestApp() {
     var dnsStatus by remember { mutableStateOf("-") }
     var dnsServers by remember { mutableStateOf("-") }
 
-    // رنگ‌بندی پویا بر اساس تم
     val bgColor = if (isDarkTheme) Color(0xFF090D16) else Color(0xFFF8FAFC)
     val cardBg = if (isDarkTheme) Color(0xFF131B2E) else Color(0xFFFFFFFF)
     val textColor = if (isDarkTheme) Color(0xFFF1F5F9) else Color(0xFF0F172A)
@@ -78,7 +75,7 @@ fun SpeedTestApp() {
         ) {
             Spacer(modifier = Modifier.height(24.dp))
 
-            // ردیف بالای صفحه: تنظیمات تم و زبان
+            // ردیف سربرگ با دکمه‌های تغییر تم و زبان
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -93,7 +90,6 @@ fun SpeedTestApp() {
                 )
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    // دکمه تغییر زبان
                     FilledTonalButton(
                         onClick = { isEnglish = !isEnglish },
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
@@ -111,7 +107,6 @@ fun SpeedTestApp() {
                         )
                     }
 
-                    // دکمه تغییر تم
                     FilledTonalButton(
                         onClick = { isDarkTheme = !isDarkTheme },
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
@@ -133,12 +128,11 @@ fun SpeedTestApp() {
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // ردیف کارت‌های مجزای دانلود و آپلود
+            // بخش تفکیک‌شده دانلود و آپلود
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // کارت دانلود
                 Card(
                     modifier = Modifier
                         .weight(1f)
@@ -172,7 +166,6 @@ fun SpeedTestApp() {
                     }
                 }
 
-                // کارت آپلود
                 Card(
                     modifier = Modifier
                         .weight(1f)
@@ -209,7 +202,7 @@ fun SpeedTestApp() {
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // بخش کوچک پینگ
+            // پینگ
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -240,7 +233,7 @@ fun SpeedTestApp() {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // مشخصات اتصال
+            // مشخصات اتصال همراه با پرچم
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -264,7 +257,7 @@ fun SpeedTestApp() {
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // وضعیت نشت دی‌ان‌اس
+            // بررسی نشت دی‌ان‌اس
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -299,7 +292,7 @@ fun SpeedTestApp() {
 
             Spacer(modifier = Modifier.height(22.dp))
 
-            // دکمه شروع تست
+            // دکمه اجرای ترتیبی تست‌ها
             Button(
                 onClick = {
                     scope.launch {
@@ -309,24 +302,23 @@ fun SpeedTestApp() {
                         ping = "..."
                         dnsStatus = if (isEnglish) "Analyzing..." else "در حال بررسی..."
 
-                        // ۱. دریافت مشخصات IP و موقعیت
                         val ipInfo = netManager.getIpDetails()
                         ip = ipInfo["ip"] ?: "-"
-                        location = "${ipInfo["city"]}, ${ipInfo["country"]}"
+                        val flag = ipInfo["flag"] ?: ""
+                        val city = ipInfo["city"] ?: "-"
+                        val country = ipInfo["country"] ?: "-"
+                        location = if (flag.isNotEmpty()) "$flag $city, $country" else "$city, $country"
                         isp = ipInfo["isp"] ?: "-"
 
-                        // ۲. محاسبه پینگ
                         val p = netManager.measurePing()
                         ping = if (p >= 0) "$p" else "Timeout"
 
-                        // ۳. تست ابتدا کامل برای دانلود
                         currentStep = if (isEnglish) "Testing Download..." else "در حال سنجش دانلود..."
                         val dSpeed = netManager.testDownloadSpeed { current: Double ->
                             downloadSpeed = current.toString()
                         }
                         downloadSpeed = String.format("%.1f", dSpeed)
 
-                        // ۴. بعد از اتمام دانلود، شروع تست آپلود
                         uploadSpeed = "..."
                         currentStep = if (isEnglish) "Testing Upload..." else "در حال سنجش آپلود..."
                         val uSpeed = netManager.testUploadSpeed { current: Double ->
@@ -334,7 +326,6 @@ fun SpeedTestApp() {
                         }
                         uploadSpeed = String.format("%.1f", uSpeed)
 
-                        // ۵. بررسی نشتی DNS
                         currentStep = if (isEnglish) "Checking DNS Leak..." else "بررسی نشت دی‌ان‌اس..."
                         val (status, servers) = netManager.checkDnsLeak(ip)
                         dnsStatus = status
@@ -360,7 +351,6 @@ fun SpeedTestApp() {
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // دکمه کپی نتایج
             OutlinedButton(
                 onClick = {
                     val report = if (isEnglish) {
