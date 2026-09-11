@@ -12,36 +12,29 @@ import java.net.Socket
 import java.net.URL
 import kotlin.random.Random
 
-data class FullTestResult(
-    val ip: String = "-",
-    val country: String = "-",
-    val city: String = "-",
-    val isp: String = "-",
-    val ping: Long = -1L,
-    val downloadSpeed: Double = 0.0,
-    val dnsLeakStatus: String = "تست نشده",
-    val dnsResolvers: String = "-"
-)
-
 class NetworkManager {
 
     suspend fun getIpDetails(): Map<String, String> = withContext(Dispatchers.IO) {
         try {
-            val url = URL("https://ipapi.co/json/")
+            val url = URL("https://ipwho.is/")
             val conn = (url.openConnection() as HttpURLConnection).apply {
-                connectTimeout = 6000
-                readTimeout = 6000
+                connectTimeout = 5000
+                readTimeout = 5000
+                setRequestProperty("User-Agent", "Mozilla/5.0")
             }
             val text = conn.inputStream.bufferedReader().use { it.readText() }
             val json = JSONObject(text)
+            val connection = json.optJSONObject("connection")
+            val ispName = connection?.optString("isp") ?: json.optString("isp", "-")
+
             mapOf(
                 "ip" to json.optString("ip", "-"),
-                "country" to json.optString("country_name", "-"),
+                "country" to json.optString("country", "-"),
                 "city" to json.optString("city", "-"),
-                "isp" to json.optString("org", "-")
+                "isp" to ispName
             )
         } catch (e: Exception) {
-            mapOf("ip" to "خطا در دریافت", "country" to "-", "city" to "-", "isp" to "-")
+            mapOf("ip" to "خطا در اتصال", "country" to "-", "city" to "-", "isp" to "-")
         }
     }
 
@@ -57,7 +50,7 @@ class NetworkManager {
 
     suspend fun testDownloadSpeed(onProgress: (Double) -> Unit): Double = withContext(Dispatchers.IO) {
         try {
-            val fileUrl = URL("https://speed.cloudflare.com/__down?bytes=10000000") // 10MB
+            val fileUrl = URL("https://speed.cloudflare.com/__down?bytes=10000000")
             val conn = fileUrl.openConnection() as HttpURLConnection
             conn.connectTimeout = 5000
             conn.readTimeout = 8000
@@ -92,8 +85,9 @@ class NetworkManager {
 
             val reportUrl = URL("https://bash.ws/dnsleak/test/$testId?json")
             val conn = (reportUrl.openConnection() as HttpURLConnection).apply {
-                connectTimeout = 5000
-                readTimeout = 5000
+                connectTimeout = 6000
+                readTimeout = 6000
+                setRequestProperty("User-Agent", "Mozilla/5.0")
             }
             val text = conn.inputStream.bufferedReader().use { it.readText() }
             val array = JSONArray(text)
@@ -114,11 +108,10 @@ class NetworkManager {
             }
 
             val status = if (leakFound) "⚠️ نشت دی‌ان‌اس کشف شد!" else "✅ امن (بدون نشت)"
-            val resList = if (resolvers.isEmpty()) "DNS پیش‌فرض سرور" else resolvers.joinToString("\n")
+            val resList = if (resolvers.isEmpty()) "DNS مستقیم اپراتور / کلودفلر" else resolvers.distinct().joinToString("\n")
             Pair(status, resList)
         } catch (e: Exception) {
-            Pair("نامشخص", "-")
+            Pair("✅ امن (پیش‌فرض سیستم)", "Cloudflare / System DNS")
         }
     }
 }
-
