@@ -6,7 +6,9 @@
 
     <application
         android:allowBackup="true"
-        android:label="Speed &amp; DNS Test"
+        android:label="NetSpeed &amp; DNS"
+        android:icon="@drawable/ic_launcher_foreground"
+        android:roundIcon="@drawable/ic_launcher_foreground"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.NoActionBar">
         <activity
