@@ -11,7 +11,10 @@ import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.net.URL
+import kotlin.math.abs
 import kotlin.random.Random
+
+data class PingResult(val latency: Long, val jitter: Long)
 
 class NetworkManager {
 
@@ -49,18 +52,29 @@ class NetworkManager {
         }
     }
 
-    suspend fun measurePing(host: String = "1.1.1.1", port: Int = 53): Long = withContext(Dispatchers.IO) {
-        try {
-            val start = System.currentTimeMillis()
-            Socket().use { it.connect(InetSocketAddress(host, port), 2500) }
-            System.currentTimeMillis() - start
-        } catch (e: Exception) {
-            -1L
+    // تست چندگانه پینگ به منظور محاسبه پینگ دقیق و Jitter (نوسان پینگ)
+    suspend fun measurePingAndJitter(host: String = "1.1.1.1", port: Int = 53): PingResult = withContext(Dispatchers.IO) {
+        val samples = mutableListOf<Long>()
+        repeat(4) {
+            try {
+                val start = System.currentTimeMillis()
+                Socket().use { it.connect(InetSocketAddress(host, port), 1500) }
+                samples.add(System.currentTimeMillis() - start)
+            } catch (_: Exception) {}
         }
+        if (samples.isEmpty()) return@withContext PingResult(-1L, 0L)
+
+        val avgPing = samples.average().toLong()
+        var diffSum = 0L
+        for (i in 0 until samples.size - 1) {
+            diffSum += abs(samples[i + 1] - samples[i])
+        }
+        val jitter = if (samples.size > 1) diffSum / (samples.size - 1) else 0L
+        PingResult(avgPing, jitter)
     }
 
-    // تست دانلود استاندارد (پشتیبانی تا ۲۵ مگابایت برای پایدار شدن سرعت واقعی)
     suspend fun testDownloadSpeed(onProgress: (Double) -> Unit): Double = withContext(Dispatchers.IO) {
+        var lastRecordedMbps = 0.0
         try {
             val fileUrl = URL("https://speed.cloudflare.com/__down?bytes=25000000")
             val conn = (fileUrl.openConnection() as HttpURLConnection).apply {
@@ -79,29 +93,29 @@ class NetworkManager {
                 val elapsedSec = (System.currentTimeMillis() - startTime) / 1000.0
                 if (elapsedSec > 0.4) {
                     val currentMbps = (totalBytesRead * 8.0) / (elapsedSec * 1_000_000.0)
-                    onProgress(String.format("%.1f", currentMbps).toDouble())
+                    lastRecordedMbps = currentMbps
+                    onProgress(currentMbps)
                 }
-                // اگر تست بیشتر از ۶ ثانیه طول کشید، سرعت ثبت شود تا کاربر معطل نشود
-                if (elapsedSec >= 6.0) break
+                if (elapsedSec >= 5.5) break
             }
             input.close()
-            val totalSec = (System.currentTimeMillis() - startTime) / 1000.0
-            (totalBytesRead * 8.0) / (totalSec * 1_000_000.0)
+            lastRecordedMbps
         } catch (e: Exception) {
-            0.0
+            lastRecordedMbps
         }
     }
 
-    // تست آپلود واقعی (با تایید نهایی دریافت بایت‌ها توسط سرور برای جلوگیری از بافر کاذب)
+    // تست آپلود تصحیح شده بدون باختن عدد نهایی
     suspend fun testUploadSpeed(onProgress: (Double) -> Unit): Double = withContext(Dispatchers.IO) {
+        var lastRecordedMbps = 0.0
         try {
-            val uploadBytes = 12 * 1024 * 1024 // 12MB
+            val uploadBytes = 8 * 1024 * 1024 // 8MB
             val fileUrl = URL("https://speed.cloudflare.com/__up")
             val conn = (fileUrl.openConnection() as HttpURLConnection).apply {
                 doOutput = true
                 requestMethod = "POST"
                 connectTimeout = 6000
-                readTimeout = 12000
+                readTimeout = 10000
                 setChunkedStreamingMode(16384)
                 setRequestProperty("Content-Type", "application/octet-stream")
             }
@@ -118,19 +132,17 @@ class NetworkManager {
                 val elapsedSec = (System.currentTimeMillis() - startTime) / 1000.0
                 if (elapsedSec > 0.4) {
                     val currentMbps = (totalBytesSent * 8.0) / (elapsedSec * 1_000_000.0)
-                    onProgress(String.format("%.1f", currentMbps).toDouble())
+                    lastRecordedMbps = currentMbps
+                    onProgress(currentMbps)
                 }
-                if (elapsedSec >= 6.0) break
+                if (elapsedSec >= 5.5) break
             }
             output.flush()
             output.close()
-
-            // خواندن پاسخ سرور تا دیتای بافر کامپیوتر واقعاً به کلودفلر تحویل داده شود
             conn.responseCode
-            val totalSec = (System.currentTimeMillis() - startTime) / 1000.0
-            (totalBytesSent * 8.0) / (totalSec * 1_000_000.0)
+            lastRecordedMbps
         } catch (e: Exception) {
-            0.0
+            lastRecordedMbps
         }
     }
 
