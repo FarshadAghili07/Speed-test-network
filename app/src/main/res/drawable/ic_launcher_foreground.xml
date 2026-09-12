@@ -1,16 +1,47 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    
+    <!-- گوی مایع بیرونی -->
     <path
-        android:fillColor="#38BDF8"
-        android:pathData="M54,20 C35.2,20 20,35.2 20,54 C20,72.8 35.2,88 54,88 C72.8,88 88,72.8 88,54 C88,35.2 72.8,20 54,20 Z M54,28 C68.4,28 80,39.6 80,54 C80,68.4 68.4,80 54,80 C39.6,80 28,68.4 28,54 C28,39.6 39.6,28 54,28 Z"/>
-    <path
-        android:fillColor="#2563EB"
-        android:pathData="M54,36 C44.1,36 36,44.1 36,54 C36,63.9 44.1,72 54,72 C63.9,72 72,63.9 72,54 C72,44.1 63.9,36 54,36 Z"/>
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M54,46 C49.6,46 46,49.6 46,54 C46,58.4 49.6,62 54,62 C58.4,62 62,58.4 62,54 C62,49.6 58.4,46 54,46 Z"/>
-</vector>
+        android:pathData="M54,18 C73.88,18 90,34.12 90,54 C90,73.88 73.88,90 54,90 C34.12,90 18,73.88 18,54 C18,34.12 34.12,18 54,18 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="18"
+                android:startY="18"
+                android:endX="90"
+                android:endY="90"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#38BDF8" />
+                <item android:offset="0.5" android:color="#2563EB" />
+                <item android:offset="1.0" android:color="#7C3AED" />
+            </gradient>
+        </aapt:attr>
+    </path>
 
+    <!-- لایه بازتاب شیشه بالا -->
+    <path
+        android:fillColor="#40FFFFFF"
+        android:pathData="M54,22 C69,22 81,31 84,44 C77,48 66,51 54,51 C42,51 31,48 24,44 C27,31 39,22 54,22 Z" />
+
+    <!-- امواج وای‌فای و سرعت داخل گوی -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:pathData="M40,46 C48,40 60,40 68,46" />
+        
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:pathData="M45,54 C50,50 58,50 63,54" />
+
+    <!-- هسته نوری مرکزی -->
+    <path
+        android:fillColor="#00E5FF"
+        android:pathData="M54,63 C56.2,63 58,64.8 58,67 C58,69.2 56.2,71 54,71 C51.8,71 50,69.2 50,67 C50,64.8 51.8,63 54,63 Z" />
+</vector>
